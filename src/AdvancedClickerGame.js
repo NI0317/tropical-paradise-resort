@@ -109,7 +109,10 @@ const AdvancedClickerGame = () => {
   const [activeTab, setActiveTab] = useState('main');
   const [showTutorial, setShowTutorial] = useState(true);
   const [tutorialStep, setTutorialStep] = useState(0);
-  
+  const [saveModalOpen, setSaveModalOpen] = useState(false);
+const [saveCode, setSaveCode] = useState("");
+const [loadCode, setLoadCode] = useState("");
+
   // 加载提示信息
   const tutorialMessages = [
     "欢迎来到《热带天堂度假村》！这是一个模拟度假村建设与经营的游戏。",
@@ -120,6 +123,321 @@ const AdvancedClickerGame = () => {
     "游戏有5个阶段，通过技术树推进游戏进程，最终成为度假业的巨头！",
     "准备好了吗？开始你的度假村经营之旅吧！"
   ];
+// 生成存档代码函数
+const generateSaveCode = () => {
+  try {
+    // 创建更紧凑的存档对象，只包含必要数据
+    const saveObj = {
+      // 版本号
+      v: 1,
+      
+      // 主要资源
+      e: Math.floor(energy),
+      m: Math.floor(minerals),
+      k: Math.floor(knowledge),
+      p: prestige,
+      
+      // 点击力量
+      ec: energyClickPower,
+      mc: mineralClickPower,
+      kc: knowledgeClickPower,
+      
+      // 解锁状态 - 合并成单个数字
+      u: (mineralUnlocked ? 1 : 0) + (knowledgeUnlocked ? 2 : 0) + (prestigeUnlocked ? 4 : 0),
+      
+      // 游戏进度
+      gp: gameProgress,
+      ph: gamePhase,
+      gt: Math.floor(gameTime),
+      
+      // 建筑 - 只保存非零建筑的数量
+      be: buildings.energyGenerators.map(b => b.count > 0 ? [b.id, b.count, b.unlocked ? 1 : 0] : null).filter(Boolean),
+      bm: buildings.mineralGenerators.map(b => b.count > 0 ? [b.id, b.count, b.unlocked ? 1 : 0] : null).filter(Boolean),
+      bk: buildings.knowledgeGenerators.map(b => b.count > 0 ? [b.id, b.count, b.unlocked ? 1 : 0] : null).filter(Boolean),
+      
+      // 科技 - 保存已购买科技的ID
+      t: technologies.filter(t => t.purchased).map(t => t.id),
+      
+      // 成就 - 保存已解锁成就的ID
+      a: achievements.filter(a => a.unlocked).map(a => a.id),
+      
+      // 已解锁但未购买的建筑
+      bu: {
+        be: buildings.energyGenerators.filter(b => b.unlocked && b.count === 0).map(b => b.id),
+        bm: buildings.mineralGenerators.filter(b => b.unlocked && b.count === 0).map(b => b.id),
+        bk: buildings.knowledgeGenerators.filter(b => b.unlocked && b.count === 0).map(b => b.id),
+      },
+      
+      // 已解锁但未购买的科技
+      tu: technologies.filter(t => t.unlocked && !t.purchased).map(t => t.id),
+      
+      // 威望
+      pm: prestigeMultiplier,
+      tr: totalResets,
+      
+      // 游戏状态
+      w: gameWon ? 1 : 0,
+    };
+    
+    // 转换为JSON，不含空格
+    const saveJson = JSON.stringify(saveObj);
+    
+    // 使用Base64编码
+    const result = btoa(encodeURIComponent(saveJson));
+    console.log("生成存档代码成功，长度:", result.length);
+    addNotification("存档代码生成成功！");
+    return result;
+  } catch (error) {
+    console.error("生成存档代码失败:", error);
+    addNotification("生成存档代码失败！");
+    return "";
+  }
+};
+
+// 从存档代码加载游戏
+const loadSaveCode = (saveCode) => {
+  try {
+    // 解码
+    const saveJson = decodeURIComponent(atob(saveCode));
+    
+    // 解析JSON
+    const saveObj = JSON.parse(saveJson);
+    
+    // 检查版本兼容性
+    if (!saveObj.v || saveObj.v !== 1) {
+      addNotification("无效的存档代码或版本不兼容");
+      return false;
+    }
+    
+    // 设置所有状态变量
+    // 主要资源
+    setEnergy(saveObj.e || 0);
+    setMinerals(saveObj.m || 0);
+    setKnowledge(saveObj.k || 0);
+    setPrestige(saveObj.p || 0);
+    
+    // 点击力量
+    setEnergyClickPower(saveObj.ec || 1);
+    setMineralClickPower(saveObj.mc || 0);
+    setKnowledgeClickPower(saveObj.kc || 0);
+    
+    // 解锁状态
+    const unlockFlags = saveObj.u || 0;
+    setMineralUnlocked((unlockFlags & 1) !== 0);
+    setKnowledgeUnlocked((unlockFlags & 2) !== 0);
+    setPrestigeUnlocked((unlockFlags & 4) !== 0);
+    
+    // 游戏进度
+    setGameProgress(saveObj.gp || 0);
+    setGamePhase(saveObj.ph || 1);
+    setGameTime(saveObj.gt || 0);
+    
+    // 建筑
+    if (saveObj.be || saveObj.bm || saveObj.bk || saveObj.bu) {
+      const updatedBuildings = JSON.parse(JSON.stringify(buildings)); // 深拷贝
+      
+      // 重置所有建筑计数和解锁状态
+      Object.keys(updatedBuildings).forEach(category => {
+        updatedBuildings[category].forEach((building, index) => {
+          updatedBuildings[category][index].count = 0;
+          updatedBuildings[category][index].unlocked = false;
+        });
+      });
+      
+      // 能量建筑
+      if (saveObj.be) {
+        saveObj.be.forEach(([id, count, unlocked]) => {
+          const index = updatedBuildings.energyGenerators.findIndex(b => b.id === id);
+          if (index !== -1) {
+            updatedBuildings.energyGenerators[index].count = count;
+            updatedBuildings.energyGenerators[index].unlocked = true;
+          }
+        });
+      }
+      
+      // 矿物建筑
+      if (saveObj.bm) {
+        saveObj.bm.forEach(([id, count, unlocked]) => {
+          const index = updatedBuildings.mineralGenerators.findIndex(b => b.id === id);
+          if (index !== -1) {
+            updatedBuildings.mineralGenerators[index].count = count;
+            updatedBuildings.mineralGenerators[index].unlocked = true;
+          }
+        });
+      }
+      
+      // 知识建筑
+      if (saveObj.bk) {
+        saveObj.bk.forEach(([id, count, unlocked]) => {
+          const index = updatedBuildings.knowledgeGenerators.findIndex(b => b.id === id);
+          if (index !== -1) {
+            updatedBuildings.knowledgeGenerators[index].count = count;
+            updatedBuildings.knowledgeGenerators[index].unlocked = true;
+          }
+        });
+      }
+      
+      // 已解锁但未购买的建筑
+      if (saveObj.bu) {
+        if (saveObj.bu.be) {
+          saveObj.bu.be.forEach(id => {
+            const index = updatedBuildings.energyGenerators.findIndex(b => b.id === id);
+            if (index !== -1) {
+              updatedBuildings.energyGenerators[index].unlocked = true;
+            }
+          });
+        }
+        
+        if (saveObj.bu.bm) {
+          saveObj.bu.bm.forEach(id => {
+            const index = updatedBuildings.mineralGenerators.findIndex(b => b.id === id);
+            if (index !== -1) {
+              updatedBuildings.mineralGenerators[index].unlocked = true;
+            }
+          });
+        }
+        
+        if (saveObj.bu.bk) {
+          saveObj.bu.bk.forEach(id => {
+            const index = updatedBuildings.knowledgeGenerators.findIndex(b => b.id === id);
+            if (index !== -1) {
+              updatedBuildings.knowledgeGenerators[index].unlocked = true;
+            }
+          });
+        }
+      }
+      
+      setBuildings(updatedBuildings);
+    }
+    
+    // 科技
+    if (saveObj.t || saveObj.tu) {
+      const updatedTechs = [...technologies];
+      
+      // 重置所有科技
+      updatedTechs.forEach((tech, index) => {
+        updatedTechs[index].purchased = false;
+        updatedTechs[index].unlocked = false;
+      });
+      
+      // 设置已购买科技
+      if (saveObj.t) {
+        saveObj.t.forEach(id => {
+          const index = updatedTechs.findIndex(t => t.id === id);
+          if (index !== -1) {
+            updatedTechs[index].purchased = true;
+            updatedTechs[index].unlocked = true;
+          }
+        });
+      }
+      
+      // 设置已解锁但未购买的科技
+      if (saveObj.tu) {
+        saveObj.tu.forEach(id => {
+          const index = updatedTechs.findIndex(t => t.id === id);
+          if (index !== -1) {
+            updatedTechs[index].unlocked = true;
+          }
+        });
+      }
+      
+      setTechnologies(updatedTechs);
+    }
+    
+    // 成就
+    if (saveObj.a) {
+      const updatedAchievements = [...achievements];
+      
+      // 重置所有成就
+      updatedAchievements.forEach((achievement, index) => {
+        updatedAchievements[index].unlocked = false;
+      });
+      
+      // 设置已解锁成就
+      saveObj.a.forEach(id => {
+        const index = updatedAchievements.findIndex(a => a.id === id);
+        if (index !== -1) {
+          updatedAchievements[index].unlocked = true;
+        }
+      });
+      
+      setAchievements(updatedAchievements);
+    }
+    
+    // 威望
+    setPrestigeMultiplier(saveObj.pm || 1);
+    setTotalResets(saveObj.tr || 0);
+    
+    // 游戏状态
+    setGameWon(saveObj.w === 1);
+    
+    // 更新生产率
+    updateProductionRates();
+    
+    addNotification("存档加载成功！");
+    addMessage("欢迎回来！您的存档已恢复。");
+    
+    return true;
+  } catch (error) {
+    console.error("加载存档错误:", error);
+    addNotification("存档加载失败！无效的存档代码。");
+    return false;
+  }
+};
+
+// 自动保存到localStorage
+const saveToLocalStorage = () => {
+  try {
+    const saveCode = generateSaveCode();
+    localStorage.setItem('tropicalParadiseResortSave', saveCode);
+    console.log('已自动保存到本地存储');
+  } catch (error) {
+    console.error('自动保存失败:', error);
+  }
+};
+
+// 处理存档相关操作
+const handleGenerateSave = () => {
+  console.log("生成存档代码按钮点击");
+  const code = generateSaveCode();
+  console.log("生成的代码长度:", code.length);
+  setSaveCode(code);
+};
+
+const handleLoadSave = () => {
+  console.log("加载存档按钮点击");
+  if (loadCode.trim() === "") {
+    addNotification("请输入存档代码");
+    return;
+  }
+  
+  const success = loadSaveCode(loadCode);
+  if (success) {
+    setSaveModalOpen(false);
+  }
+};
+
+const handleCopySave = () => {
+  console.log("复制存档代码按钮点击");
+  if (!saveCode) {
+    addNotification("没有可复制的存档代码");
+    return;
+  }
+  
+  try {
+    navigator.clipboard.writeText(saveCode)
+      .then(() => {
+        addNotification("存档代码已复制到剪贴板！");
+      })
+      .catch(err => {
+        console.error("无法复制到剪贴板：", err);
+        addNotification("无法复制到剪贴板，请手动复制代码。");
+      });
+  } catch (error) {
+    console.error("复制操作失败:", error);
+    addNotification("复制失败，请手动选择代码并复制。");
+  }
+};
 
   // 资源点击函数
   const handleEnergyClick = () => {
@@ -1008,6 +1326,26 @@ const AdvancedClickerGame = () => {
       setBuildings(updatedBuildings);
     }
   }, []);
+// 游戏开始时从localStorage加载
+useEffect(() => {
+  try {
+    const savedCode = localStorage.getItem('tropicalParadiseResortSave');
+    if (savedCode) {
+      loadSaveCode(savedCode);
+    }
+  } catch (error) {
+    console.error('从本地存储加载失败:', error);
+  }
+}, []);
+
+// 设置每5分钟自动保存
+useEffect(() => {
+  const autoSaveInterval = setInterval(() => {
+    saveToLocalStorage();
+  }, 5 * 60 * 1000); // 5分钟
+  
+  return () => clearInterval(autoSaveInterval);
+}, []);
 
   // 渲染建筑列表
   const renderBuildings = (category) => {
@@ -1148,7 +1486,7 @@ const AdvancedClickerGame = () => {
           </div>
           <button
             className={`px-4 py-2 rounded-md ${prestigeGain > 0 ? 'bg-yellow-600 hover:bg-yellow-700' : 'bg-gray-600 cursor-not-allowed'}`}
-            onClick={performPrestigeReset}
+            onClick={() => prestigeGain >= 1 && performPrestigeReset()}
             disabled={prestigeGain < 1}
           >
             重置
@@ -1308,7 +1646,91 @@ const AdvancedClickerGame = () => {
       </div>
     )
   });
-
+  const SaveLoadModal = ({ saveModalOpen, setSaveModalOpen, saveCode, setSaveCode, loadCode, setLoadCode, handleGenerateSave, handleLoadSave, handleCopySave }) => {
+    if (!saveModalOpen) return null;
+    
+    // Close modal when clicking outside
+    const handleBackgroundClick = () => {
+      setSaveModalOpen(false);
+    };
+    
+    // Prevent clicks inside the modal from closing it
+    const handleModalClick = (e) => {
+      e.stopPropagation();
+    };
+    
+    return (
+      // The outer div is the background overlay
+      <div 
+        className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50"
+        onClick={handleBackgroundClick}
+      >
+        {/* The inner div is the modal content */}
+        <div 
+          className="bg-gray-800 p-6 rounded-lg max-w-lg w-full" 
+          onClick={handleModalClick}
+        >
+          <div className="flex justify-between items-center mb-4">
+            <div className="text-xl font-bold">游戏存档</div>
+            <button 
+              className="text-gray-400 hover:text-white text-xl px-2"
+              onClick={() => setSaveModalOpen(false)}
+            >
+              ✕
+            </button>
+          </div>
+          
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold mb-2">保存游戏</h3>
+            <div className="flex mb-2">
+              <button 
+                className="px-4 py-2 bg-blue-600 rounded-md hover:bg-blue-700 mr-2"
+                onClick={handleGenerateSave}
+                type="button"
+              >
+                生成存档代码
+              </button>
+              {saveCode && (
+                <button 
+                  className="px-4 py-2 bg-green-600 rounded-md hover:bg-green-700"
+                  onClick={handleCopySave}
+                  type="button"
+                >
+                  复制到剪贴板
+                </button>
+              )}
+            </div>
+            {saveCode && (
+              <div className="bg-gray-900 p-2 rounded-md overflow-x-auto mt-2">
+                <code className="text-xs break-all select-all">{saveCode}</code>
+              </div>
+            )}
+          </div>
+          
+          <div>
+            <h3 className="text-lg font-semibold mb-2">加载游戏</h3>
+            <textarea
+              className="w-full p-2 bg-gray-900 rounded-md text-white mb-2 text-sm"
+              placeholder="输入存档代码..."
+              rows={4}
+              value={loadCode}
+              onChange={(e) => setLoadCode(e.target.value)}
+            ></textarea>
+            <button 
+              className="px-4 py-2 bg-blue-600 rounded-md hover:bg-blue-700 w-full"
+              onClick={handleLoadSave}
+              disabled={!loadCode.trim()}
+              type="button"
+            >
+              加载存档
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+  
+  
   return (
     <div className="bg-gray-900 text-white min-h-screen p-4">
       {/* 游戏状态和事件信息 */}
@@ -1383,6 +1805,12 @@ const AdvancedClickerGame = () => {
         >
           日志
         </button>
+        <button
+  className="px-4 py-2 mr-2 rounded-md transition-colors bg-yellow-800 hover:bg-yellow-700"
+  onClick={() => setSaveModalOpen(true)}
+>
+  存档
+</button>
       </div>
       
       {/* 选项卡内容 */}
@@ -1489,6 +1917,18 @@ const AdvancedClickerGame = () => {
         setGameWon={setGameWon}
         performPrestigeReset={performPrestigeReset}
       />
+       {/* 存档对话框 */}
+       <SaveLoadModal 
+         saveModalOpen={saveModalOpen}
+         setSaveModalOpen={setSaveModalOpen}
+         saveCode={saveCode}
+         setSaveCode={setSaveCode}
+         loadCode={loadCode}
+         setLoadCode={setLoadCode}
+         handleGenerateSave={handleGenerateSave}
+         handleLoadSave={handleLoadSave}
+         handleCopySave={handleCopySave}
+       />
     </div>
   );
 };
