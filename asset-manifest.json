@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/tropical-paradise-resort/static/css/main.1ca67800.css",
+    "main.js": "/tropical-paradise-resort/static/js/main.029622ac.js",
+    "static/js/453.ed5c84bc.chunk.js": "/tropical-paradise-resort/static/js/453.ed5c84bc.chunk.js",
+    "index.html": "/tropical-paradise-resort/index.html",
+    "main.1ca67800.css.map": "/tropical-paradise-resort/static/css/main.1ca67800.css.map",
+    "main.029622ac.js.map": "/tropical-paradise-resort/static/js/main.029622ac.js.map",
+    "453.ed5c84bc.chunk.js.map": "/tropical-paradise-resort/static/js/453.ed5c84bc.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.1ca67800.css",
+    "static/js/main.029622ac.js"
+  ]
+}
