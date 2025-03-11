@@ -1647,25 +1647,57 @@ useEffect(() => {
     )
   });
   const SaveLoadModal = ({ saveModalOpen, setSaveModalOpen, saveCode, setSaveCode, loadCode, setLoadCode, handleGenerateSave, handleLoadSave, handleCopySave }) => {
+    // 添加对文本框的引用
+    const textareaRef = React.useRef(null);
+    
+    // 使用 useEffect 在模态框打开时尝试聚焦文本框
+    React.useEffect(() => {
+      if (saveModalOpen && textareaRef.current) {
+        // 短暂延迟以确保DOM已完全渲染
+        setTimeout(() => {
+          try {
+            textareaRef.current.focus();
+          } catch (error) {
+            console.error("聚焦文本框失败:", error);
+          }
+        }, 100);
+      }
+    }, [saveModalOpen]);
+    
     if (!saveModalOpen) return null;
     
-    // Close modal when clicking outside
+    // 点击背景时关闭模态框
     const handleBackgroundClick = () => {
       setSaveModalOpen(false);
     };
     
-    // Prevent clicks inside the modal from closing it
+    // 防止点击模态框内部时关闭模态框
     const handleModalClick = (e) => {
       e.stopPropagation();
     };
     
+    // 处理文本框输入
+    const handleTextareaChange = (e) => {
+      e.stopPropagation();
+      console.log("文本框输入:", e.target.value);
+      setLoadCode(e.target.value);
+    };
+    
+    // 处理文本框点击
+    const handleTextareaClick = (e) => {
+      e.stopPropagation();
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    };
+    
     return (
-      // The outer div is the background overlay
+      // 外层div是背景层
       <div 
         className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50"
         onClick={handleBackgroundClick}
       >
-        {/* The inner div is the modal content */}
+        {/* 内层div是模态框内容 */}
         <div 
           className="bg-gray-800 p-6 rounded-lg max-w-lg w-full" 
           onClick={handleModalClick}
@@ -1675,6 +1707,7 @@ useEffect(() => {
             <button 
               className="text-gray-400 hover:text-white text-xl px-2"
               onClick={() => setSaveModalOpen(false)}
+              type="button"
             >
               ✕
             </button>
@@ -1710,11 +1743,14 @@ useEffect(() => {
           <div>
             <h3 className="text-lg font-semibold mb-2">加载游戏</h3>
             <textarea
+              ref={textareaRef}
               className="w-full p-2 bg-gray-900 rounded-md text-white mb-2 text-sm"
               placeholder="输入存档代码..."
               rows={4}
               value={loadCode}
-              onChange={(e) => setLoadCode(e.target.value)}
+              onChange={handleTextareaChange}
+              onClick={handleTextareaClick}
+              onFocus={(e) => e.stopPropagation()}
             ></textarea>
             <button 
               className="px-4 py-2 bg-blue-600 rounded-md hover:bg-blue-700 w-full"
