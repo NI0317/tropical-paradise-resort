@@ -1652,119 +1652,119 @@ useEffect(() => {
     
     // 使用 useEffect 在模态框打开时尝试聚焦文本框
     React.useEffect(() => {
-      if (saveModalOpen && textareaRef.current) {
-        // 短暂延迟以确保DOM已完全渲染
-        setTimeout(() => {
-          try {
-            textareaRef.current.focus();
-          } catch (error) {
-            console.error("聚焦文本框失败:", error);
-          }
-        }, 100);
-      }
+        if (saveModalOpen && textareaRef.current) {
+            // 短暂延迟以确保DOM已完全渲染
+            setTimeout(() => {
+                try {
+                    textareaRef.current.focus();
+                } catch (error) {
+                    console.error("聚焦文本框失败:", error);
+                }
+            }, 100);
+        }
     }, [saveModalOpen]);
     
     if (!saveModalOpen) return null;
     
     // 点击背景时关闭模态框
     const handleBackgroundClick = () => {
-      setSaveModalOpen(false);
+        setSaveModalOpen(false);
     };
     
     // 防止点击模态框内部时关闭模态框
     const handleModalClick = (e) => {
-      e.stopPropagation();
+        e.stopPropagation();
     };
     
     // 处理文本框输入
     const handleTextareaChange = (e) => {
-      e.stopPropagation();
-      console.log("文本框输入:", e.target.value);
-      setLoadCode(e.target.value);
+        e.stopPropagation();
+        console.log("文本框输入:", e.target.value);
+        setLoadCode(e.target.value);
     };
     
     // 处理文本框点击
     const handleTextareaClick = (e) => {
-      e.stopPropagation();
-      if (textareaRef.current) {
-        textareaRef.current.focus();
-      }
+        e.stopPropagation();
+        if (textareaRef.current) {
+            textareaRef.current.focus();
+        }
     };
     
     return (
-      // 外层div是背景层
-      <div 
-        className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50"
-        onClick={handleBackgroundClick}
-      >
-        {/* 内层div是模态框内容 */}
+        // 外层div是背景层
         <div 
-          className="bg-gray-800 p-6 rounded-lg max-w-lg w-full" 
-          onClick={handleModalClick}
+            className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50"
+            onClick={handleBackgroundClick}
         >
-          <div className="flex justify-between items-center mb-4">
-            <div className="text-xl font-bold">游戏存档</div>
-            <button 
-              className="text-gray-400 hover:text-white text-xl px-2"
-              onClick={() => setSaveModalOpen(false)}
-              type="button"
+            {/* 内层div是模态框内容 */}
+            <div 
+                className="bg-gray-800 p-6 rounded-lg max-w-lg w-full" 
+                onClick={handleModalClick}
             >
-              ✕
-            </button>
-          </div>
-          
-          <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-2">保存游戏</h3>
-            <div className="flex mb-2">
-              <button 
-                className="px-4 py-2 bg-blue-600 rounded-md hover:bg-blue-700 mr-2"
-                onClick={handleGenerateSave}
-                type="button"
-              >
-                生成存档代码
-              </button>
-              {saveCode && (
-                <button 
-                  className="px-4 py-2 bg-green-600 rounded-md hover:bg-green-700"
-                  onClick={handleCopySave}
-                  type="button"
-                >
-                  复制到剪贴板
-                </button>
-              )}
+                <div className="flex justify-between items-center mb-4">
+                    <div className="text-xl font-bold">游戏存档</div>
+                    <button 
+                        className="text-gray-400 hover:text-white text-xl px-2"
+                        onClick={() => setSaveModalOpen(false)}
+                        type="button"
+                    >
+                        ✕
+                    </button>
+                </div>
+                
+                <div className="mb-6">
+                    <h3 className="text-lg font-semibold mb-2">保存游戏</h3>
+                    <div className="flex mb-2">
+                        <button 
+                            className="px-4 py-2 bg-blue-600 rounded-md hover:bg-blue-700 mr-2"
+                            onClick={handleGenerateSave}
+                            type="button"
+                        >
+                            生成存档代码
+                        </button>
+                        {saveCode && (
+                            <button 
+                                className="px-4 py-2 bg-green-600 rounded-md hover:bg-green-700"
+                                onClick={handleCopySave}
+                                type="button"
+                            >
+                                复制到剪贴板
+                            </button>
+                        )}
+                    </div>
+                    {saveCode && (
+                        <div className="bg-gray-900 p-2 rounded-md overflow-x-auto mt-2">
+                            <code className="text-xs break-all select-all">{saveCode}</code>
+                        </div>
+                    )}
+                </div>
+                
+                <div>
+                    <h3 className="text-lg font-semibold mb-2">加载游戏</h3>
+                    <textarea
+                        ref={textareaRef}
+                        className="w-full p-2 bg-gray-900 rounded-md text-white mb-2 text-sm"
+                        placeholder="输入存档代码..."
+                        rows={4}
+                        value={loadCode}
+                        onChange={handleTextareaChange}
+                        onClick={handleTextareaClick}
+                        onFocus={(e) => e.stopPropagation()} // 确保点击时不会关闭模态框
+                    ></textarea>
+                    <button 
+                        className="px-4 py-2 bg-blue-600 rounded-md hover:bg-blue-700 w-full"
+                        onClick={handleLoadSave}
+                        disabled={!loadCode.trim()}
+                        type="button"
+                    >
+                        加载存档
+                    </button>
+                </div>
             </div>
-            {saveCode && (
-              <div className="bg-gray-900 p-2 rounded-md overflow-x-auto mt-2">
-                <code className="text-xs break-all select-all">{saveCode}</code>
-              </div>
-            )}
-          </div>
-          
-          <div>
-            <h3 className="text-lg font-semibold mb-2">加载游戏</h3>
-            <textarea
-              ref={textareaRef}
-              className="w-full p-2 bg-gray-900 rounded-md text-white mb-2 text-sm"
-              placeholder="输入存档代码..."
-              rows={4}
-              value={loadCode}
-              onChange={handleTextareaChange}
-              onClick={handleTextareaClick}
-              onFocus={(e) => e.stopPropagation()}
-            ></textarea>
-            <button 
-              className="px-4 py-2 bg-blue-600 rounded-md hover:bg-blue-700 w-full"
-              onClick={handleLoadSave}
-              disabled={!loadCode.trim()}
-              type="button"
-            >
-              加载存档
-            </button>
-          </div>
         </div>
-      </div>
     );
-  };
+};
   
   
   return (
